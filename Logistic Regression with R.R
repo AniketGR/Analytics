@@ -1,5 +1,5 @@
 
-setwd("/Users/happy/Documents/ED/CBAPR Share Instructors/Data")
+setwd("C:/Users/wel/Desktop/Edvancer/Data/Data")
 
 ## ----
 rg=read.csv("Existing Base.csv",stringsAsFactors = FALSE)
@@ -301,7 +301,7 @@ cutoff_viz=cutoff_data %>%
 ggplot(filter(cutoff_viz,Criterion!="Lift"),aes(x=cutoff,y=Value,color=Criterion))+
   geom_line()
 
-#We'll visualise lift separately because of its scale
+#Visualise lift separately because of its scale
 
 cutoff_viz %>%
   filter(Criterion=="Lift") %>%
