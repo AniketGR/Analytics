@@ -1,9 +1,9 @@
 setwd("C:/Users/wel/Desktop/Edvancer/REal Estate_project")
 rm(list = ls())
-
 train_data=read.csv("housing_train.csv",header = T,stringsAsFactors = F)
-glimpse(train_data)
+library(dplyr)
 
+glimpse(train_data)
 test_data=read.csv("housing_test.csv",header = T,stringsAsFactors = F)
 
 CreateDummies=function(data,var){
@@ -32,12 +32,10 @@ for (i in 1:nrow(test_data)) {
   }
 }
 
-table(test_data$CouncilArea)
+
 
 # Decision tree #
 library(dplyr)
-train_data=train_data%>%
-  na.omit()
 
 for (cols in names(train_data)){
   if (class(train_data[,cols])=="integer"){
