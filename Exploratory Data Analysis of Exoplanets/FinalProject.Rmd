@@ -1,0 +1,310 @@
+---
+title: "19200154_Advanced R_Final Project"
+author: "Aniket Guha Roy-19200164"
+date: "8/14/2020"
+output: html_document
+runtime : shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Required packages 
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(ggiraph)
+library(lubridate)
+library(gganimate)
+library(shiny)
+library(png)
+library(gifski)
+
+```
+
+##Question1
+Import the dataset exo_data.csv as a tibble. Columns 1, 16, 17, 18, 25 should be characters. Columns 2, 14 should be factors. Column 15 should be integers. The remaining columns should be doubles. Note: the ﬁle metadata.txt contains useful information about this dataset. Also, you may consult https://en.wikipedia.org/wiki/Exoplanet
+```{r 1}
+rm(list = ls())
+#loading dataset as tibble
+exo =  as_tibble(read.csv(file.choose()))
+head(exo)
+#Confirming the class of the dataset as tibble
+class(exo)
+#Converting the data type of the columns as per question
+exo = exo %>%
+  mutate_at(vars(flag,meth ), funs(factor))%>% 
+  mutate_at(vars(id,recency,r_asc,decl,lists), funs(as.character)) %>% 
+    mutate_at(vars(mass,radius,period,axis,ecc,per,lon,asc,incl,
+                 temp,age,dist,host_mass,host_rad,host_met,host_temp,host_age), funs(as.double))
+```
+
+##Question 2
+Exclude the exoplanets with an unknown method of discovery
+```{r 2}
+#Removing the rows where Method contains blank/NA values
+exo = exo %>%
+  filter(meth!="")%>%
+  droplevels()
+levels(exo$meth)
+```
+
+##Question 3
+Create a graphic which illustrates the relationship between the log-distances from the Sun and the methods of discovery.
+```{r 3}
+#Plot of each method's frequency
+ggplot(exo, aes(x = meth,y=log(dist),fill = meth))+
+geom_histogram(stat = "identity") +
+  ylab("Log-Dist from Sun") + xlab('Methods of discovery') +
+  ggtitle("Log-Distances from sun")
+#plot of methods of discivery
+ggplot(exo, aes(x=log(dist), fill = meth)) +
+  geom_histogram(position="identity")  +
+  ylab("Log-Dist from Sun") + xlab('Methods of discovery') +
+ggtitle("Log-Distances from sun")
+```
+
+##Question 4
+Create scatterplots of the log-mass versus log-distances, separating by methods of discovery. Hovering with the cursor highlights the point and displays its name, and, if you click, the exoplanet’s page on the Open Exoplanet Catalogue will be opened. (paste the id after http://www.openexoplanetcatalogue.com/planet/ ). 
+```{r 4}
+exo$onclick = sprintf("window.open(\"%s%s\")",
+                        "http://www.openexoplanetcatalogue.com/planet/",exo$id)
+
+gg_point = ggplot(data = exo,aes(x=log(dist),y=log(mass))) +
+  geom_point_interactive(aes(data_id = id,tooltip = id,onclick = onclick,color = meth)) +
+  ylab("Log-Mass") + xlab("Log-Dist from Sun")+
+  labs(title="Scatterplots of log-mass vs. log-distances")
+ggiraph(ggobj = gg_point)
+##or
+gg_point = ggplot(data = exo,aes(x=log(dist),y=log(mass))) +
+  geom_point_interactive(aes(data_id = id,tooltip = id,onclick = onclick,color = meth)) +
+  labs(title="Scatterplots of log-mass vs. log-distances") + theme_minimal() + facet_wrap(~meth)
+ggiraph(ggobj = gg_point)
+```
+
+
+##Question 5
+Rename the radius into jupiter_radius,and create a new column called earth_radius which is 11.2 times the Jupiter radius. 
+```{r 5}
+#Creating a new column, 11.2 times the jupiter radius
+exo = exo %>%
+  rename(jupiter_radius = radius)%>%
+  mutate(earth_radius = 11.2 * jupiter_radius)
+```
+
+##Question 6
+Focus only on the rows where log-earth radius and log-period have no missing values, and perform kmeans with four clusters on these two columns.
+```{r 6}
+#Creating a new dataset 
+exo_kmeans = exo %>% 
+  filter(!is.na(period))%>%
+  filter(!is.na(earth_radius))%>%
+  mutate(earth_radius = log(earth_radius),
+         period = log(period))
+#Creatin
+kmeans_data = exo_kmeans%>%
+  select(earth_radius,period)
+
+#Clustering using K-means
+kmeans_data
+km = kmeans(kmeans_data,4)
+
+#Count under each cluster
+table(km$cluster)
+ggplot(kmeans_data,aes(x=period,y=earth_radius,color = factor(km$cluster)))+geom_point()
+```
+
+##Question 7
+Add the clustering labels to the dataset through a new factor column called type, with levels rocky, hot_jupiters, cold_gas_giants, others; similarly to https: //en.wikipedia.org/wiki/Exoplanet#/media/File:ExoplanetPopulations-20170616. png and produce the scatterplot highlighting these clusters
+```{r 7}
+# conbverting clustering levels to different types
+exo_kmeans = exo_kmeans %>%
+  mutate(type = km$cluster,
+  type = case_when(
+           type == 1 ~ "cold_gas_giants",
+           type == 2 ~ "others",
+           type == 3 ~ "Rocky",
+           type == 4 ~ "hot_jupiters")%>%
+           as.factor()%>%
+           structure(levels=c("rocky", "hot_jupiters", "cold_gas_giants", "others")))
+ggplot(exo_kmeans,aes(x=period,y=earth_radius,color = type))+geom_point()
+```
+
+##Question 8
+Use a violin plot to illustrate how these clusters relate to the log-mass of the exoplanet.
+```{r 8}
+#violin
+ggplot(exo_kmeans, aes(x = type, y = log(mass))) + 
+  geom_violin() + labs(title="Violin plot of log-mass of the exoplanet")
+```
+
+##Question 9
+Transform r_asc and decl into two new variables that are the same varibales but in values of seconds. Use these as coordinates to represent a celestial map for the exoplanets.
+
+```{r 9}
+# conver r_asc to seconds
+exo$r_asc = gsub(" ", ":", exo$r_asc, fixed=TRUE) # convert to hh:mm:ss
+exo$r_asc = hms(exo$r_asc) 
+#convert to secs in a new column
+exo$r_asc_sec = period_to_seconds(exo$r_asc)
+# convert Declination to seconds
+exo$decl = gsub(" ", ":", exo$decl, fixed=TRUE) # convert to dd:mm:ss
+exo$decl = hms(exo$decl) 
+#convert to secs in a new column
+exo$decl_sec = period_to_seconds(exo$decl)
+ggplot(exo, aes(r_asc_sec, decl_sec, color= factor(meth))) + geom_point() + 
+  labs(title = "Celestial Map for Exoplanets", x ="Right ascension (seconds)",y="declination (seconds)")
+```
+
+##Question 10
+Create an animated time series where multiple lines illustrate the evolution over time of the total number of exoplanets discovered for each method up to that year.
+```{r 10}
+
+# dataset created based on methods and year
+exo_ts = exo %>%
+           group_by(meth, year) %>%  
+           summarise(Count = length(meth)) %>%
+           mutate(Count = cumsum(Count))
+# omitting missing values
+exo_ts  = na.omit(exo_ts)
+ggplot(exo_ts, aes(x = year, y = Count, group = meth)) + 
+      geom_line(aes(color = meth)) + 
+    geom_point(size = 2) + 
+    transition_reveal(year) + 
+  labs(title = 'Total number of exoplanets discovered for each method',x='year',y = 'Count')
+```
+
+
+##Question 11
+Create an interactive plot with Shiny where you can select the year (slider widget, with values≥2009) and exoplanet type. Exoplanets appear as points on a scatterplot (log-mass vs log-distance coloured by method) only if they have already been discovered. If type is equal to all all types are plotted together.
+```{r 11,echo = FALSE}
+
+# Define UI for application that draws an interactive plot
+ui <- fluidPage(
+
+    # Application title
+    titlePanel("Interactive Plot of Exoplanet"),
+
+    # Sidebar with a slider input for years and radio button for exoplanet type
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput("yearInput","Number of bins:",min = 2008,max = 2020,value = 2009),
+            radioButtons("methodInput", "Exoplanet type",choices = c("rocky", "hot_jupiters","cold_gas_giants", "others","All"),selected = "cold_gas_giants")
+        ),
+        # Show a plot of the generated distribution
+        mainPanel(
+           plotOutput("coolplot")
+                        )
+                    )
+                )
+
+server <- function(input, output) {
+  #filtered dataset for all condition
+        output$coolplot <- renderPlot({
+            if(input$methodInput == "All"){
+            filtered <-exo_kmeans %>%
+                filter(!is.na(year))%>%
+                filter(!is.na(type))%>%
+                filter(year >= input$yearInput)
+            
+            }
+          #filtered dataset for each type as per input
+            else{
+                filtered <-exo_kmeans %>%
+                    filter(!is.na(year))%>%
+                    filter(!is.na(type))%>%
+                    filter(year >= input$yearInput,
+                           type == input$methodInput)
+            }
+            #plot
+            ggplot(data = filtered,aes(x=log(dist),y=log(mass))) +
+                geom_point_interactive(aes(data_id = id,tooltip = id,color = meth)) +
+                labs(title="Scatterplots of log-mass vs. log-distances") 
+                
+    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+
+```
+
+##Question 12
+Fit a linear regression model where log period is the response variable and the logs of host_mass, host_temp and axis are the covariates (exclude rows that contain at least one missing value). Include an intercept term in the regression model.
+
+```{r 12}
+# new dataset for linear model
+exo_lm = exo %>%
+  #check and remove missing values
+  filter(!is.na(period))%>%
+  filter(!is.na(host_mass))%>%
+  filter(!is.na(host_temp))%>%
+  filter(!is.na(axis))%>%
+  #new columns where log of the columns has been stored
+   mutate(log_period = log(period),
+     log_host_mass = log(host_mass),
+         log_host_temp = log(host_temp),
+         log_axis = log(axis),
+         na.rm = TRUE)%>%
+    select(log_period,log_host_mass,log_host_temp,log_axis)
+#linear model 
+linearMod = lm(log_period~log_host_mass+log_host_temp+log_axis,data = exo_lm)
+
+
+```
+
+##Question 13
+Include in your R Markdown document some model summaries and an interpretation of the model you have ﬁt.
+```{r 13}
+#summary of the model
+summary(linearMod)
+#Change the panel layout to 2 x 2
+
+```
+##Summary:
+Interpretation of each section of summary-
+
+--Call: This shows that function in our case is log period and parameters are log_host_mass,log_host_temp, log_axis
+that have been used to create the model.
+
+--Residuals: Difference between what the model predicted and the actual value of y.  We see the difference is quite less with median -0.0016 lying between aprroximately -2.08 to 3.4
+
+--Coefficients: 
+** The estimate of intercept term 5.66955 which means if all other parameters part of the model is equal to 0, then intercept term represents response or Log period in this case. The standard error, T and p values suggest that this is statiscally significant
+
+** Log_host_mass is negatively related to log period. With every unit increase in the log of host mass, the log of period would decrease by -0.4 units. Three stars beside p values suggest highly significant p-values confirming the statistical significance of the varible.
+
+** Log_host_temp is negatively related to log period. With every unit increase in the log of host mass, the log of period would decrease by -0.4 units. A values less than 0.5 suggest significance of the model
+
+** Log_axis is positively related to log period. With every unit increase in the log of host mass, the log of period would decrease by -0.4 units.Three stars beside p values suggest highly significant p-values confirming the statistical significance of the varible.
+
+Residual Standard Error
+Residual Standard Error is measure of the quality of a linear regression fit.Residual standard error of 0.2148 on 1263 degrees of freedom has a percentage error of aprroximately 3.78%. This shows that the model is a  good fit. Moreover the estimate obtained on 1263 observations is worth noting as wel.
+ 
+Multiple R-Squared:
+This explains the variablity of the data with the model. Theoretically, it is the ratio between regression sum of square and total sum of ssquare. Here 99.29% of the log of periods variablity is expalined by the model.
+
+Adjusted R-Squared
+Inclusion of more and more predictors monotonically increases the Multiple R-squared value. So with increased number of predictors, this should be adjusted. The adjustment is done based on the loss of degree of freedom. Here the adjusted value is 99.29%.
+
+F-Statistic
+F statistic of 5.86 * 10^4 shows that the coefficients in the model are significantly important in predicting the model.
+
+##Plots
+Residuals vs fitted plot:
+From the residuals vs fitted plot, we find that the residuals are alomost equally spread around a horizontal line with very few outliers like the 380, 1089 and 1091. to confirm if they are outliers, we need to do further analysis.
+Normal Q-Q plot:
+We observe that the residuals follow a straight line for most of the part apart from some observations at the start and at the end. WE find the same outliers as detected in the first plot
+Scale Location:
+This plot shows if residuals are spread equally along the ranges of predictors. The residuals appear randomly spread
+with few excepotions
+Residuals Vs Leverage plot:
+This plot gives us an idea about the influential points.Observing the upper right corner and lower right corner we see there are no points, infact we do not find a single point outside the cook's distance indicating no presence of influential points
+
+Overall, the model is a good fit.
+
+##Question 14
+Embed the Shiny app from (11) in your RMarkdown document
+```{r 14}
+```
+Embedded : Request to run the document.
