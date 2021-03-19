@@ -1,0 +1,333 @@
+---
+title: "Assignment3"
+author: "Aniket Guha Roy-19200164"
+date: "5/23/2020"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+## UCD School of Mathematics and Statistics Exam Honour Code.
+I confirm that I have not given aid, or sought and/or received aid for this assignment.
+Name: Aniket Guha Roy
+Student Id: 19200164
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Question 1a)
+```{r 1a}
+library(ggplot2)
+#loading the dataset
+
+donkey = read.csv(file.choose())
+head(donkey)
+str(donkey)
+#distribution of the variables
+summary(donkey)
+tab<-table(donkey[,1],donkey[,1])
+colors = 1: length(unique(donkey$BCS))
+barplot(tab,col = colors,legend=rownames(tab),
+        xlab = "BCS",ylab = "Count", 
+        main="Body Condition Score" )
+colorsA = 1:length(unique(donkey$Age))    
+tab2<-table(donkey[,2],donkey[,2])
+barplot(tab2,col = colorsA,legend=rownames(tab2),
+        xlab = "Age Range",ylab = "Count", 
+        main="Age Range")
+colorsS = 1:length(unique(donkey$Sex))    
+tab2<-table(donkey[,3],donkey[,3])
+barplot(tab2,col = colorsA,legend=rownames(tab2),
+        xlab = "Sex",ylab = "Count", 
+        main="Sex")        
+#histogram
+par(mfrow=c(3, 3))
+cols <- colnames(donkey)
+for (i in 4:7) {
+    hist(donkey[,i], xlim=c(50, 250), breaks=seq(0, 250, 10), main=cols[i], probability=TRUE, col="gray", border="white")
+}
+
+## Density plot
+par(mfrow=c(2, 2))
+for (i in 4:7) {
+    d <- density(donkey[,i])
+    plot(d, type="n", main=cols[i])
+    polygon(d, col="red", border="gray")
+}
+
+boxplot(donkey)
+
+#removing the outlying dokey from the datatset
+donk<-donkey[-which.min(donkey$Length),]
+```
+From the summary, histograms, boxplots and density plots, we get an idea on the distributions of each variable. Few are listed below:
+1. Majority  of the body conidtion score is of value 3 while 1 and 4 have the least frequency.
+2. donkeys in the age group of 10-15 have the highest frequency and donkeys above 20 have the least frequency.
+3. Females majorly dominate the dataset followed by stallion and gelding.
+4: The lengths of the donkeys ranges mainly within 80-110. There are few outliers as is observed from the boxplots.
+5: The girth also has a similar distribution where its values ranges mailny within 100-130. We have outliers here as well.
+6. The Heights are strictly concentrated within 90-110 with few values outside this range.
+7. The distribution of the Weight is spread but is almost normally distributed with a slight tendency of being positively skewed.
+#outlier removal
+We remove the donkey with the minimum length as we assume an observation point which is an outlier would be common for other variables as well.Hence we remove one observation as outlier.
+
+#Question 1b)
+The main objective of PCA is dimensionality reduction method while retaining most of the variation in the data set.Principal components analysis involves breaking down the variance structure of a group of variables.Its difficult to apply PCA on Categorical variables as they not numerical,and thus have no variance structure or mean. Though we  can convert categorical variables to a series of binary (0 or 1) variables and then perform principal components analysis on the result but its quite cumbersome. Hence we will consider the last 4 variables: Length, Girth, Height and WEight of the datasets. Though BCS, Body condition score is numerical we won't include that in our observation since it is not in sync with the dimensions of the variables and it can be treated as categorical as most of the observations can be classified into certain levels.
+
+#Question 1c)
+We generally use correlation matrix when the scales of the variables are different covariance when the variables are not scaled. Correlation  is actually a function of the covariance and are standardizd sets.In our case, since we would deal with only the variables related to the dimensions of the donkeys, its preferred to use covariance matrix rather correlation. 
+
+#Question 1d)
+```{r 1d}
+#removing other variables
+mat = donk[,4:7]
+scaled_data = apply(mat,2,scale)
+pca = function(data){
+  d.cov = cov(scaled_data)
+  d.eigen = eigen(d.cov)
+  w =  d.eigen$vectors[,1:2]
+  w = -w
+  eigen.values = d.eigen$values
+  row.names(w) = colnames(data)
+  colnames(w) = c("PC1","PC2")
+  PVE <- d.eigen$values / sum(d.eigen$values)
+  return(list(w,PVE=PVE, eigenval =eigen.values ))
+}
+p = pca(scaled_data)
+p
+pca_values = p[[1]]
+pve_values = p[[2]]
+PC1 = as.matrix(scaled_data) %*% p[[1]][,1]
+PC2 = as.matrix(scaled_data) %*% p[[1]][,2]
+PC <- data.frame(dimensions = row.names(mat),PC1, PC2)
+
+ggplot(PC, aes(PC1, PC2)) + 
+  modelr::geom_ref_line(h = 0) +
+  modelr::geom_ref_line(v = 0) +
+  geom_text(aes(label = dimensions), size = 3) +
+  xlab("First Principal Component") + 
+  ylab("Second Principal Component") + 
+  ggtitle("First Two Principal Components of Donkey Data")
+```
+
+By default, eigenvectors in R point in the negative direction. During the calculation of PCA function, we have  multiplied the default loadings by -1 as we’d prefer the eigenvectors point in the positive direction since it leads to more logical interpretation of graphical results. 
+From the PCA function we get the loading factors and the proportion of variation explained by the respective principal components. The principal component scores are also calculated by projecting the n data points onto the first eigen vector and stored in PC. We also plot the graph of the two principal components that gives us an idea about the how the variabes are influenced by the principal component factors.
+
+## Question 1e)
+```{r pressure, echo=FALSE}
+set.seed(19200164)
+s = sample(1:500,5)
+donk_samp = donk[-s,]
+##distribution of variables
+summary(donk_samp)
+tab<-table(donk_samp[,1],donk_samp[,1])
+colors = 1: length(unique(donk_samp$BCS))
+barplot(tab,col = colors,legend=rownames(tab),
+        xlab = "BCS",ylab = "Count", 
+        main="Body COndition Score" )
+colorsA = 1:length(unique(donk_samp$Age))    
+tab2<-table(donk_samp[,2],donk_samp[,2])
+barplot(tab2,col = colorsA,legend=rownames(tab2),
+        xlab = "Age Range",ylab = "Count", 
+        main="Age Range")
+colorsS = 1:length(unique(donk_samp$Sex))    
+tab2<-table(donk_samp[,3],donk_samp[,3])
+barplot(tab2,col = colorsA,legend=rownames(tab2),
+        xlab = "Sex",ylab = "Count", 
+        main="Sex")        
+#histogram
+par(mfrow=c(3, 3))
+cols <- colnames(donk_samp)
+for (i in 4:7) {
+    hist(donk_samp[,i], xlim=c(50, 250), breaks=seq(0, 250, 10), main=cols[i], probability=TRUE, col="gray", border="white")
+}
+
+## Density plot
+par(mfrow=c(2, 2))
+for (i in 4:7) {
+    d <- density(donk_samp[,i])
+    plot(d, type="n", main=cols[i])
+    polygon(d, col="red", border="gray")
+}
+boxplot(donk_samp)
+
+mat = donk_samp[,4:7]
+scaled_data1 = apply(mat,2,scale)
+pca = function(data){
+  d.cov = cov(scaled_data)
+  d.eigen = eigen(d.cov)
+  w =  d.eigen$vectors
+  w = -w
+  eigen_values = d.eigen$values
+  row.names(w) = colnames(data)
+  colnames(w) = c("PC1","PC2","PC3","PC4")
+  PVE <- d.eigen$values / sum(d.eigen$values)
+  return(list(eigenvectors = w,PVE=PVE,eigenvalues = eigen_values))
+}
+
+p = pca(scaled_data1)
+p
+pca_values = p[[1]]
+pve_values = p[[2]]
+PC1 = as.matrix(scaled_data1) %*% p[[1]][,1]
+PC2 = as.matrix(scaled_data1) %*% p[[1]][,2]
+PC <- data.frame(dimensions = row.names(mat),PC1, PC2)
+head(PC)
+# PVE (aka scree) plot
+PVEplot <- qplot(c(1:4), p[[2]]) + 
+  geom_line() + 
+  xlab("Principal Component") + 
+  ylab("PVE") +
+  ggtitle("Scree Plot") +
+  ylim(0, 1)
+PVEplot
+
+# Cumulative PVE plot
+cumPVE <- qplot(c(1:4), cumsum(p[[2]])) + 
+  geom_line() + 
+  xlab("Principal Component") + 
+  ylab(NULL) + 
+  ggtitle("Cumulative Scree Plot") +
+  ylim(0,1)
+cumPVE
+
+```
+
+The most common technique that we use for determining how many principal components to keep is 'scree plot'. To determine the number of components, we look for the “elbow point”, where the PVE significantly drops off.
+In our case, because we only have 4 variables to begin with, reduction to 2 variables while still explaining close to 90% of the variability is a good improvement, which is inferred from the cumulative screeplot.
+
+## Question 1f)
+```{r 1f}
+p$eigenvectors[,1]
+```
+
+The first principal component of a data set with columns X1, X2...Xn is the linear combination of the features:
+Z1 = (phi11*X1) + (phi21*X2) +... (phin1*Xn) that has the largest variance (i.e 80% in our case) 
+and where phi11, phi21,...phin1 are the loadings of the first principal component. Hence the phi vector that maximizes the variance will be the first column of the loading matrix. 
+Combining the loadings matrix along with the values of the dataset help to compute the principal component scores of each observation.We can see that for PC1, almost all the variables have high values with girth and weight being the highest. This explains the fact that PC1 explains around 80% of the variance of the whole dataset. 
+
+## Question 1g)
+```{r 1g}
+ggplot(PC, aes(seq_along(PC1),PC1)) + 
+  modelr::geom_ref_line(h = 0) +
+  modelr::geom_ref_line(v = 0) +
+  geom_text(aes(label = dimensions), size = 3) +
+   xlab("Observations") + 
+  ylab("First Principal Component") +
+  ggtitle("First Principal Component")
+
+```
+The first prinicpal component roughly corresponds to all the dimensions(lenght, girth, height and weight of the donkeys) in the context as it explains most of the variation (around 80%) in the dataset. So we could say the the observations points like 524,547,538 have quite high values of length, girth, height and weight. Similarly, we can say the observation points like 1,10,23,27 have less values of the variables. Most of the other observation points are normally distributed around 0 indicating average values of the dimensions. The distribution has a slight negative tendency since few observation points lie at the extreme corners signifying the lower and high values of the variables.
+
+## Question 1h)
+```{r 1h}
+n =  nrow(scaled_data1)
+jack_score<-matrix(NA,nrow=n,ncol = 4)
+#scaled.df<-scale(donkey.df[,c(4,7)],center = TRUE,scale = TRUE)
+ for(i in 1:n)
+ {
+  jack = scaled_data1[-i,]
+  pseudo = scaled_data1[i,]
+  pca_pseudo = pca(jack)
+  s<-as.matrix(pseudo)
+  jack_score[i,]<-t(s)%*%as.matrix(p[[1]])
+ }
+
+cat("PCA evaluation\n")
+cat("variance of the jackknife :")
+cat(diag(var(jack_score)))
+cat("\nvariance of the PCA function :")
+cat(p$eigenvalues)
+```
+Jackknife is a resampling method which can be used to evalulate the quality of the PCA model. We apply the PCA function on the dataset as many times as the number of observations in the dataset while omitting one row each time.
+In this way, we conduct a PCA analysis for all all possible subsets of size (n-1). 
+Consequently , we compare the variance of the jackknife and variance of the first prinicipal component and observe the values are alsmot equal.This indicates the goodness of the model and the accuracy.
+
+##Question 2
+```{r 2}
+##loading the ash data
+ash = read.csv(file.choose(),header = TRUE)
+set.seed(19200164)
+ss = sample(1:99, 5)
+ash_samp = ash[-ss,]
+head(ash_samp)
+```
+
+## Question 2c-i)
+```{r 2c-i}
+
+## Density plot
+cols_ash <- colnames(ash_samp)
+par(mar = rep(2, 4))
+for (i in 2:9) {
+    d <- density(ash_samp[,i])
+    plot(d, type="n", main=cols_ash[i])
+    polygon(d, col="red", border="gray")
+}
+
+## applying transformation
+##ash_tfm = apply(ash_samp,2,log10)
+ash_tfm = ash_samp
+ash_tfm[,2] = log10(ash_samp[,2])
+ash_tfm[,4] = log10(ash_samp[,4])
+ash_tfm[,5] = log10(ash_samp[,5])
+ash_tfm[,6] = sqrt(ash_samp[,6])
+ash_tfm[,7] = log10(ash_samp[,7])
+ash_tfm[,8] = log10(ash_samp[,8])
+ash_tfm[,9] = sqrt(ash_samp[,9])
+
+## Density plot
+par(mfrow=c(4, 4))
+for (i in 2:9) {
+    d <- density(ash_tfm[,i])
+    plot(d, type="n", main=cols_ash[i])
+    polygon(d, col="red", border="gray")
+}
+```
+The density plots of the mass concentrations of the ash samples indicate that most of the distributions of the variales are positively skewed. Among which, the variables P2O5, Fe2O3, Al2O3, MgO and Na2O are highly skewed and elements Ca0 and K2O are moderately skewed. Hence we need to apply transformation to the skewed data. Normal distribution of the variables are a requirement while calculating factor loadings in factor analysis.
+
+After applying transformation we find that the highly skewed data are transformed using log10 transformation and moderately skewed data are transformed using sqrt transformation
+
+## Question 2c-ii)
+```{r 2c-ii}
+fa2 = factanal(ash_tfm[,-1],factors = 2,rotation = "varimax")
+fa3 = factanal(ash_tfm[,-1],factors = 3,rotation = "varimax")
+fa4 = factanal(ash_tfm[,-1],factors = 4,rotation = "varimax")
+fa2
+fa3
+fa4
+
+##two columns of the loadings matrix
+fa4$loadings[,1:2]
+```
+
+Factor analysis with 2, 3 and 4 factors reveals below highlights:
+1.factors=2: chi-square statistic is 75.41 and p value 7.99e-11
+2.factors=3: chi-square statistic is 29.87 and p value 1e-04
+3.factors=4: chi-square statistic is 6.53 and p value 0.0381
+
+Since a low chi-squared statistic suggests a good model, we would select the model with 4 factors. The p values are quite less for models with factors 2 and 3, so it suggests that we can reject the null hyposthesis  and can say that 2 and 3 factors are suufiecient as is also stated by 'hypothesis test'. For 4 factors the p-value is slighlt less. Overall, the model with 4 factors seem to be the best to capture the correlation structure in the variables.
+
+##Interpretation of first two columns of loadings matrix
+The range of loadings is between [-1,1]. A value close to 0 suggests the factor loading does not have significant impact on the variable and value cloase to -1,1 suggests significant impact of factor loading
+
+We see that Factor 1 strongly influence Fe2O3, Al2O3 with 0.83 and 0.80 loading factors respectively. We also have significant impact on NA2o with 0.56. It has the least impact on P2o5 with a loading of .03. Factor 1 also have quite less influence on Mg0 and K2o  with 0.11 and 0.27 loading.
+
+On the other hand, Factor 2 have strong influence on P2o5, K2o and Si02 with 0.75, 0.82 and 0.61 laoding fators respectively. It has the least impact on Cao with only 0.01 loading. Na2o,FE2o3, AL2o3 and MGo also seem to have quite less impacts by factor 2 as they have loadng factors of 0.10,0.20,0.29 and 0.37.
+Conbbining both the factors, we see that Cao and Mg0 have quite less impacts compared to other variables.
+
+## Question 2c-iii)
+```{r 2c -iii}
+
+fa_lf = factanal(ash_tfm[,-1],scores = "regression",factors = 4,rotation = "varimax")
+{plot(fa_lf$scores[,1],type="n",xlab="Observation number",ylab="Factor Scores",main="Factor Scores of first latent factor")
+text(x=seq_along(fa_lf$scores[,1]),y=fa_lf$scores[,1], labels=ash_tfm$SOT,cex=0.8)
+}
+
+```
+To calculate the factor analysis scores for 4 factors, we apply regression method. The scores will help define the variation of the data by the 4 factors. 
+The factor scores for the first latent factor define the variation of data explained by the first factor for each observation. Most the of the data lies below 1, hence we can say that these observations have not been explained by factor 1. Few observation points lie at the top, which indicates that their high variance with scores greater than 2.
+
+
+
