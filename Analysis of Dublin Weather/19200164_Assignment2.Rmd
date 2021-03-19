@@ -1,0 +1,134 @@
+---
+title: "R Assignment 2"
+author: "Aniket Guha Roy"
+date: "08/11/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+```{r library
+}
+install.packages("tidyverse")
+library(ggplot2)
+install.packages("ggpubr")
+library(ggpubr)
+```
+
+
+
+2.Load in the data as an object called DublinAirport. Notice that you have to skip the
+first 19 lines contained in the file before beginning to read data. Line 20 contains the
+column names. Display the structure of the dataset
+
+```{r}
+setwd("C:/Users/anike/Desktop/UCD/R module/Assignments/Assignment/Assignment-2")
+DublinAirport = read.csv("mly532.csv",header = T, skip = 19)
+str(DublinAirport)
+```
+
+3.Transform the column months to a factor with labels given by the month names. [Two
+hints: (1) look at the arguments levels and labels of the function factor. (2) you
+may want to make use of the built-in constant month.name]
+
+```{r}
+DublinAirport$month <- factor(DublinAirport$month,levels = c(1,2,3,4,5,6,7,8,9,10,11,12),labels = month.name)
+```
+
+4.Use the aggregate function to compute which month has on average the highest and
+the lowest Precipitation Amount.
+
+```{r}
+res = aggregate(rain~month,aa,sum)
+res[order(res$rain),]
+```
+
+5.Create a new column which contains a factor indicating the season:
+• Winter: December, January, February,
+• Spring: March, April, May,
+• Summer: June, July, August,
+• Autumn: September, October, November
+[Hint: again, look at the arguments levels and labels of the function factor.]
+```{r}
+DublinAirport$season <- factor(aa$month, levels =month.name[c(12,1,2,3,4,5,6,7,8,9,10,11)],labels = c("Winter","Winter","Winter","Spring","Spring","Spring","Summer","Summer","Summer","Autumn","Autumn","Autumn"))
+
+```
+
+6. Assign to the DublinAiport object the classes WeatherData and data.frame.
+
+```{r}
+class(DublinAirport) = c("WeatherData","data.frame")
+```
+
+7. Write an S3 summary method for an object of class WeatherData which produces
+the following statistical summaries the rain, maxtp, mintp, maxgt variables split by
+season: mean, standard deviation, minimum, maximum. Ignore the missing values in
+the calculations.
+Test your function on the DublinAirport data set and comment your findings
+
+```{r}
+summary.WeatherData = function(obj){
+  Mean_statistic = aggregate(cbind(obj$rain,obj$maxtp,obj$mintp,obj$maxgt), by =list(obj$season),FUN = mean, na.rm = T)
+  SD_statistic = aggregate(cbind(obj$rain,obj$maxtp,obj$mintp,obj$maxgt), by = list(obj$season), FUN = sd, na.rm = T)
+  Minimum_statistic = aggregate(cbind(obj$rain,obj$maxtp,obj$mintp,obj$maxgt), by = list(obj$season), FUN = min, na.rm = T)
+  Maximum_statistic = aggregate(cbind(obj$rain,obj$maxtp,obj$mintp,obj$maxgt), by = list(obj$season), FUN = max, na.rm = T)
+  colnames(Mean_statistic) = c("Seasons","Rain_mean","Maxtp_mean","Mintp_mean","Maxgt_mean")
+  colnames(SD_statistic) = c("Seasons","Rain_SD","Maxtp_SD","Mintp_SD","Maxgt_SD")
+  colnames(Minimum_statistic) = c("Seasons","Rain_min","Maxtp_min","Mintp_min","Maxgt_min")
+  colnames(Maximum_statistic) = c("Seasons","Rain_max","Maxtp_max","Mintp_max","Maxgt_max")
+  print(Mean_statistic)
+  print(SD_statistic)
+  print(Minimum_statistic)
+  print(Maximum_statistic)
+}
+summary.WeatherData(DublinAirport)
+```
+
+
+8. Create an S3 plot method for the class WeatherData that produces the following plots.
+(1) Plot of the monthly Air Temperature (C) (maxtp, mintp).
+(2) Plot of the Precipitation Amount (mm) (rain).
+(3) Plot of the Highest Gust (knot) (maxgt).
+• The user must be able to decide which years to plot. By default it will use the
+data from 2015 until 2018.
+• The user must be able to decide which plot to draw (i.e, only one of the three,
+two of the three, or all three plots). By default the function will create all three
+plots.
+• The plots must be on a single panel.
+• The plots must have meaningful labels and/or titles, and a legend if needed.
+• Test your function on the DublinAirport data set
+
+```{r}
+
+plot.WeatherData = function(obj,Begin_year = "2015",End_year = "2018", plot = "X"){
+  Duration = subset(obj,obj$year>= Begin_year & obj$year <= End_year)
+  Duration$year = as.factor(Duration$year)
+  shapes = c("Q1" = 16,"Q2" = 19)
+ g1 = ggplot(data = Duration,mapping=aes(x=month))+
+   geom_point(aes(y=maxtp,colour=year,shape = "Q1")) +
+   geom_point(aes(y=mintp,colour=year,shape = "Q2")) +
+   labs(x="Months",y="Variations in Temperature", title= "Monthly Temperature Variations")+
+   theme(axis.text.x = element_text(angle = 90,size = 5))+
+   scale_shape_manual(name="Temperature",breaks = c("Q1","Q2"),values = shapes,labels = c("Max Temp", "Min Temp"))
+  g2 = ggplot(data = Duration,mapping=aes(x=month))+
+     geom_point(aes(y=rain,colour=year)) +
+   labs(x="Months", y="Variations in Precipitation", title= "Monthly Precipitation Variations")+
+    theme(axis.text.x = element_text(angle = 90,size = 5))
+  g3 = ggplot(data = Duration,mapping=aes(x=month))+
+     geom_point(aes(y=maxgt,colour=year)) +
+   labs(x="Months", y="Variations in gust", title= "Monthly gust Variations")+
+    theme(axis.text.x = element_text(angle = 90,size = 5))
+  if(plot=="1"){
+    ggarrange(g1,common.legend = TRUE, legend = "left")
+  }                     
+  else if(plot=="2"){
+    ggarrange(g1,g2,common.legend = TRUE, legend = "left")
+  }else if(plot=="3"|plot == "X"){  
+    ggarrange(g1,g2,g3,common.legend = TRUE, legend = "left")
+  }
+}  
+
+plot.WeatherData(obj=DublinAirport)
+plot.WeatherData(obj=DublinAirport,Begin_year = "2011",End_year = "2016",plot = 2)
+```
