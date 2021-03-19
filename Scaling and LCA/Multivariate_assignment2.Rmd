@@ -1,0 +1,205 @@
+---
+title: "Multivariate_Assignment2"
+author: "Aniket Guha Roy-19200164"
+date: "4/17/2020"
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+if(!require(poLCA))
+{
+install.packages("poLCA")
+library(poLCA)
+}
+if(!require(MASS))
+{
+install.packages("MASS")
+library(MASS)
+}
+if(!require(vegan))
+{
+install.packages("vegan")
+library(vegan)
+}
+if(!require(e1071))
+{
+install.packages("e1071")
+library(e1071)
+}
+if(!require(mclust))
+{
+install.packages("mclust")
+library(mclust)
+}
+```
+
+##Question 1
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load(file.choose())
+head(bin.votes)
+str(bin.votes)
+TD_votes = ifelse(bin.votes==1,0,1)
+head(TD_votes)
+
+```
+Before we apply hierarchical clustering, the response of votes recorded as "Yes" has been converted to 0 and "No" has been converted to 1.
+#Question 1.a)
+```{r cars}
+##Hclustering
+TD.complete<-hclust(dist(TD_votes),method = "complete")
+plot(TD.complete, main = "Complete")
+TD.single<-hclust(dist(TD_votes),method = "single")
+plot(TD.single, main = "single")
+TD.average<-hclust(dist(TD_votes),method = "average")
+plot(TD.average,main = "Average")
+TD_average = cutree(TD.average,k=2)
+
+```
+From the dendograms of the three different types of hierarchical clustering methods, we get to know that the average method seems to be the best as it classifies into two distinct clusters. In the single method, we can observe chaining while in complete method, there are numerous cluters with no clear distinctions.
+
+#Question 1b)
+```{r pressure, echo=FALSE}
+LCA_cols = cbind(Environment,RentFreeze,SocialWelfare,GamingAndLotteries,
+           HousingMinister,FirstTimeBuyers)~1
+min_bic = 10000
+lm_bic = rep(NA,6)
+lm_aic = rep(NA,6)
+for(i in 1:6){
+  lc = poLCA(LCA_cols, bin.votes, nclass=i, maxiter=5000,
+              tol=1e-5, na.rm=FALSE,  
+              nrep=10, verbose=FALSE,calc.se=TRUE)
+  lm_bic[i] = lc$bic
+  lm_aic[i] = lc$aic
+  if(lc$bic < min_bic){
+    min_bic = lc$bic
+    LCA_best_model = lc
+  }
+}
+LCA_best_model
+x = c(1:6)
+plot(x,lm_aic,type="b",col="red",main = "AIC & BIC")
+lines(x,lm_bic,type="b",col="blue")
+legend(2,1250,legend=c("AIC","BIC"),col=c("red","blue"))
+lca_2 = poLCA(LCA_cols,bin.votes, nclass=2, maxiter=5000, 
+              tol=1e-5, na.rm=FALSE, graphs = TRUE, 
+              nrep=10, verbose=FALSE, calc.se=TRUE)
+```
+The puropose of Latent Class Analysis is to classify features into latent groups/classes.
+LCA_best_model stores the model with the lowest BIC after sequentially testing every model from 1 to 6 classes with 5000 repetitions.We find that the BIC score for class 2 is the lowest and hence is stored as the LCA_best_model.
+It is also evident from the AIC and BIC graph where we notice that the class 2 has the lowest AIC and BIC values.
+
+#Question 1c)
+```{r}
+tab = table(TD_average,lca_2$predclass)
+tab
+classAgreement(tab)
+
+```
+For models having two clusters, Rand index of 0.89 is quite high, indicating a high similarity between the hierarchical model and latent class analysis model. The Adjusted Rand index which takes randomness into account is also quite high at 0.78 confirming that both the models are quite similar.
+Question 1d)
+
+##Question 2
+```{r}
+plant = read.csv(file.choose(),header = TRUE)
+terpenes = plant[,1:7]
+summary(plant)
+boxplot(terpenes)
+head(terpenes)
+
+```
+#Question 2 a)
+Classical Metric Scaling
+```{r}
+cms = cmdscale(dist(terpenes),k=3,eig=TRUE)
+cms
+q1 = sum(abs(cms$eig[1]))/sum(abs(cms$eig))
+q2 = sum(abs(cms$eig[1:2]))/sum(abs(cms$eig))
+q3 = sum(abs(cms$eig[1:3]))/sum(abs(cms$eig))
+
+plot(c(q1,q2,q3),col = 1,pch =19,type = "b",main="Analyzing each Dimension", 
+     xlab="Number of dimensions",ylab="Proportion of Variation")
+x = cms$points[,1]
+y = cms$points[,2]
+{plot(x,y,col =2, pch = 19, xlim = c(-20,40), ylim = c(-40,20), main = "Classical Metric Scaling")
+text(x,y,plant$Location,pos =4, col = as.numeric(plant$Location), cex = 0.8)
+}
+```
+We can see that the proportion of variation explained by 2 dimensions is much more when compared to one dimension.The steep slope indicates the significant increase in variation compared to 3rd dimension as well.
+
+#Question 2 b)
+Sammon’s metric least squares scaling
+```{r}
+terp_sam = rep(0,3)
+for(i in seq(3)){
+terp_sam[i] = sammon(dist(terpenes),k=i)$stress
+}
+
+{plot(terp_sam, type = "b",pch = 19, col = 1, main = "Stress Comparison for each dimension")
+text(c(0:4),terp_sam,round(terp_sam,5), cex = 0.6)
+}
+terp_sam2 = sammon(dist(terpenes),k=2)
+x = terp_sam2$points[,1]
+y = terp_sam2$points[,2]
+{plot(x,y,col =1, pch = 19, xlim = c(-20,40), ylim = c(-40,20), main = "Sammon’s metric least squares scaling")
+text(x,y,row.names(plant),pos =4,cex = 0.8)
+}
+```
+The stress levels decreases substantially from class 1 to class 2 whereas it doesn't decrease that much from class 2 to class 3. Hence we fit the Sammon scaling for 2 classes and the observations points  plotted are similar to Classical Metric Scaling.  
+
+Kruskal’s non-metric scaling
+```{r}
+terp_krus = rep(NA,3)
+for(i in seq(3)){
+terp_krus[i] = isoMDS(dist(terpenes),k=i)$stress
+}
+
+{plot(terp_krus, type = "b",pch = 19, col = 1, main = "Stress Comparison for each dimension")
+text(c(0:4),terp_krus,round(terp_krus,5), cex = 0.6)
+}
+terp_krus2 = isoMDS(dist(terpenes),k=2)
+x = terp_krus2$points[,1]
+y = terp_krus2$points[,2]
+{plot(x,y,col =1, pch = 19, xlim = c(-20,40), ylim = c(-40,20), main = "Kruskal’s non-metric scaling")
+text(x,y,row.names(plant),pos =4,cex = 0.8)
+}
+```
+The stress levels  decreases more in case of class 1 to class 2 than class 2 to class 3.Hence, we fit Kruskal with 2 classes again and notice that we get similar observation points as Classical Metric Scaling.
+
+#Question 2c)
+Procrustes analysis
+```{r}
+proc_cms_sam = procrustes(cms$points[,1:2], terp_sam2$points)
+proc_sam_krus = procrustes(terp_sam2$points, terp_krus2$points)
+proc_krus_cms = procrustes(terp_krus2$points, cms$points[,1:2])
+plot(proc_cms_sam,main = "Orientation match between CMS and Sammon' scaling")
+plot(proc_sam_krus,main = "Orientation match between Sammon' scaling and Kruskal scaling")
+plot(proc_krus_cms,main = "Orientation match Kruskal scaling and CMS")
+plot(proc_cms_sam, kind=2,main = "Residual plots of CMS and Sammon")
+plot(proc_sam_krus, kind=2,main = "Residual plots of Sammon and Kruskal")
+plot(proc_krus_cms, kind=2,main = "Residual plots of Kruskal and CMS")
+proc_cms_sam
+proc_sam_krus
+proc_krus_cms
+```
+Kind 1 gives a visual indication of the degree of match between the two ordinations. Symbols or labels show the position of the samples in the first ordination, and arrows point to their positions in the target ordination. The plot also shows the rotation between the two ordinations necessary to make them match as closely as possible.
+
+Kind 2 plots show the residuals for each sample. This allows identification of samples with the worst fit. The horizontal lines, from bottom to top, are the 25% (dashed), 50% (solid), and 75% (dashed) quantiles of the residuals.
+
+Considering both the kind graphs, we find that procrustes analysis between CMS and kruskal scaling is the best as the residuals are quite low and oreientation of both the graphs is almost similar with very few observations apart from each other.
+#Question 2d)
+```{r}
+model= Mclust(terpenes,G=1:9)
+summary(model)
+model$BIC
+```
+
+Mclust package uses Bayesian Information Criterion (BIC) to find the number of clusters (model selection). BIC uses the likelihood and a penalty term to guard against overfitting. After the data is fit into the model, we plot the model based on clustering results
+Mclust uses an identifier for each possible parametrization of the
+covariance matrix that has three letters: E for “equal”, V for “variable”
+and I for “coordinate axes”.
+The first identifier refers to volume, the second to shape and the third
+to orientation
+
+We observe that the the minimum BIC is generated for the model VEV with 6 clusters.
